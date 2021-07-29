@@ -1,15 +1,20 @@
+<!DOCTYPE html>
 <html>
     <head>
-        <title>登录</title>
+        <title>login</title>
     </head>
     
     <body>
         <form action="/form" method="post" enctype="application/x-www-form-urlencoded">
-            <label>帐号</label>
-            <input type="text" name="user" />
-			<label>密码</label>
-            <input type="text" name="password" />
-            <button type="submit">提交</button>
+            account：<input type="text" name="name" /><br>
+			password：<input type="text" name="password" /><br>
+            <button type="submit">submit</button>
         </form>
+
+        <p>
+            <a href="http://localhost:8080/login" target="_blank" rel="noopener noreferrer">
+           login
+            </a>
+        </p>
     </body>
 </html>
