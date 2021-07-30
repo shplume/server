@@ -8,27 +8,23 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 )
 
-var db *sql.DB
-var err error
-
-type account struct {
-	name     string
-	password string
-}
-
-func init() {
-	db, err = sql.Open("mysql", "root:secret@tcp(localhost:3000)/todos")
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	_, err = db.Exec("CREATE TABLE IF NOT EXISTS todos.test(id INT UNSIGNED AUTO_INCREMENT, name varchar(50), password varchar(50),PRIMARY KEY (id))")
-	if err != nil {
-		log.Fatalln(err)
-	}
-}
-
 func main() {
+	db, err := sql.Open("mysql", "root:secret@tcp(localhost:3000)/todos")
+	if err != nil {
+		log.Fatal("create database failed", err)
+	}
+
+	_, err = db.Exec(`CREATE TABLE IF NOT EXISTS todos.test(
+		id INT UNSIGNED AUTO_INCREMENT, 
+		name varchar(50) unique, 
+		password varchar(50),
+		PRIMARY KEY (id)
+	)`)
+
+	if err != nil {
+		log.Fatal("create table failed", err)
+	}
+
 	r := gin.Default()
 
 	r.LoadHTMLGlob("html/*")
@@ -36,71 +32,59 @@ func main() {
 	r.GET("/", func(c *gin.Context) {
 		c.HTML(200, "index.html", "")
 	})
-	r.GET("/login", func(c *gin.Context) {
+	r.GET("/register", func(c *gin.Context) {
 		c.HTML(200, "account.html", "")
 	})
 
-	r.POST("/form", func(c *gin.Context) {
+	r.POST("/login", func(c *gin.Context) {
 		name := c.PostForm("name")
 		password := c.PostForm("password")
 
-		rows, err := db.Query("SELECT name,password FROM todos.test")
+		var p string
+		err := db.QueryRow("SELECT password FROM test WHERE name = ?", name).Scan(&p)
 		if err != nil {
-			log.Fatalln(err)
+			log.Println("query failed,err:", err)
 		}
 
-		for rows.Next() {
-			var a account
-			err = rows.Scan(&a.name, &a.password)
-			if err != nil {
-				log.Fatalln(err)
-			}
-			if name == a.name && password == a.password {
-				c.String(200, "login successfully")
-				return
-			}
+		if password == p {
+			c.String(200, "login successfully")
+			return
 		}
-		c.String(404, "account or password incorrect")
+
+		c.String(400, "account or password incorrect")
 	})
 
-	r.POST("/web", func(c *gin.Context) {
+	r.POST("/register/result", func(c *gin.Context) {
 		name := c.PostForm("name")
 		password := c.PostForm("password")
 
-		rows, err := db.Query("SELECT name FROM todos.test")
+		var s string
+
+		err := db.QueryRow(`SELECT name FROM test WHERE name = ?`, name).Scan(&s)
 		if err != nil {
-			log.Fatalln(err)
+			log.Println("query failed,err:", err)
 		}
 
-		for rows.Next() {
-			var s string
-
-			err = rows.Scan(&s)
-			if err != nil {
-				log.Fatalln(err)
-			}
-
-			if s == name {
-				c.String(404, "User name has been registereds")
-				return
-			}
+		if s == name {
+			c.String(400, "User name has been registereds")
+			return
 		}
-		rows.Close()
 
 		rs, err := db.Exec("INSERT INTO test(name, password) VALUES (?,?)", name, password)
 		if err != nil {
-			log.Fatal(err)
+			log.Println("insert failed,err:", err)
+			return
 		}
-		c.String(200, "login successfully")
 
 		rowCount, err := rs.RowsAffected()
 		if err != nil {
-			log.Fatalln(err)
+			log.Fatal(err)
 		}
 		log.Printf("inserted %d rows", rowCount)
+
+		c.String(200, "register successfully")
 	})
 
 	r.Run(":8080")
-
-	defer db.Close()
+	db.Close()
 }
